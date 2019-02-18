@@ -41,6 +41,7 @@ parameters:
       - range: {min: 1, max: 1024}
         description: Must be between 1 and 1024 GB
 
+  data_volume:
 resources:
   centos_cloud_server:
     type: OS::Nova::Server
