@@ -13,7 +13,7 @@ parameters:
     type: string
     label: Image ID
     description: Enter the Name or ID of the image to use
-    default: Ubuntu-18.04-cloud
+    default: CentOS-7-x86_64-GenericCloud-1511.qcow2
 
   instance_type:
     type: string
@@ -66,6 +66,7 @@ resources:
           params:
             $LOGFILE: /tmp/installlog.log
             $VOLSIZE: { get_param: volume_size }
+            $MOUNT_DIR: { get_param: data_dir }
           template: |
             #!/bin/bash -v
               die() {
@@ -73,6 +74,7 @@ resources:
                 exit 1
               } 
             yum install -y lvm2 >> $LOGFILE 2>&1 || die
+            mkdir -p $MOUNT_DIR
             pvcreate /dev/vdb >> $LOGFILE 2>&1 || die
             vgcreate volgroup01 /dev/vdb >> $LOGFILE 2>&1 || die
             lvcreate -l +100%FREE -n lvol01 volgroup01 >> $LOGFILE 2>&1 || die
