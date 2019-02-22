@@ -13,7 +13,7 @@ parameters:
     type: string
     label: Image ID
     description: Enter the Name or ID of the image to use
-    default: CentOS-7-x86_64-GenericCloud-1511.qcow2
+    default: Ubuntu-18.04-cloud
 
   instance_type:
     type: string
@@ -54,7 +54,7 @@ parameters:
     default: /data
 
 resources:
-  centos_cloud_server:
+  ubuntu_cloud_server:
     type: OS::Nova::Server
     properties:
       key_name: {get_param: key_name}
@@ -93,16 +93,16 @@ resources:
     type: OS::Cinder::VolumeAttachment
     properties:
       volume_id: {get_resource: cinder_volume}
-      instance_uuid: {get_resource: centos_cloud_server}
+      instance_uuid: {get_resource: ubuntu_cloud_server}
       mountpoint: /dev/vdb
 
-  centos_cloud_server_wait:
+  ubuntu_cloud_server_wait:
     type: AWS::CloudFormation::WaitCondition
-    depends_on: [centos_cloud_server, cinder_volume, volume_attachment]
+    depends_on: [ubuntu_cloud_server, cinder_volume, volume_attachment]
     properties:
       Handle:
-        get_resource: centos_cloud_server_wait_handle
+        get_resource: ubuntu_cloud_server_wait_handle
       Timeout: 1000
 
-  centos_cloud_server_wait_handle:
+  ubuntu_cloud_server_wait_handle:
     type: AWS::CloudFormation::WaitConditionHandle
