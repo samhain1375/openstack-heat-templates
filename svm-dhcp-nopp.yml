@@ -1,0 +1,125 @@
+heat_template_version: 2017-02-24
+
+description: This template will spin up a single VM.
+
+parameters:
+  vm_name:
+    type: string
+    label: VM Name
+    description:  Enter the name of this VM
+
+  key_name:
+    type: string
+    label: Keypair
+    description:  Enter the keypair to use
+    default: Lab1
+
+  image:
+    type: string
+    label: Image ID
+    description: Enter the Name or ID of the image to use
+    default: ubuntu-18.04-cloud
+
+  flavor:
+    type: string
+    label: Flavor
+    description: Enter the flavor name or ID
+    default: lab.small
+
+  network_name:
+    type: string
+    label: Network
+    description: Enter the network to use
+    default: IPv6_v4
+
+  subnet_name:
+    type: string
+    label: Subnet Name
+    description: Enter the name of the subnet
+
+  ip_address:
+    type: string
+    label: Network IP Address
+    description: Enter the IP address for the internal management network.
+
+  availability_zone:
+    type: string
+    label: Compute Availability Zone
+    description:  Enter the Availabilty Zone for the compute resources (vCPU's and RAM).
+    default:  nova
+
+  cinder_availability_zone:
+    type: string
+    label: Storage_Availability Zone
+    description:  Enter the Availabilty Zone for the volume.
+    default:  labAxiros
+
+  volume_size:
+    type: number
+    label: Volume Size
+    description: Enter the Volume Size in GB
+    constraints:
+      - range: { min: 1, max: 1024 }
+        description: Must be between 1 and 1024 GB
+
+resources:
+  cloud_server:
+    type: OS::Nova::Server
+    depends_on: [ cinder_volume,eth0 ]
+    properties:
+      name: { get_param: vm_name }
+      key_name: { get_param: key_name }
+      flavor:  { get_param: flavor }
+      availability_zone: { get_param: availability_zone }
+      networks:
+        - port: { get_resource: eth0 }
+      block_device_mapping_v2:
+        - volume_id: { get_resource: cinder_volume }
+      user_data:
+        str_replace:
+          params:
+            $ADMINUSER: vseadmin
+            $PASS: vseadmin
+          template: |
+            #!/bin/bash
+            useradd $ADMINUSER -m -U -s /bin/bash 
+            echo -e "$PASS\n$PASS" | passwd $ADMINUSER
+            passwd -e vseadmin
+            echo '"$ADMINUSER"   ALL=(ALL)    ALL' >> /etc/sudoers
+            if [ -f /etc/os-release ];
+            then
+              sed -i -e '/PasswordAuthentication no/s/^#//g;/PasswordAuthentication no/s/^PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+              sed -i -e '/ChallengeResponseAuthentication no/s/^#//g;/ChallengeResponseAuthentication no/s/^ChallengeResponseAuthentication no/ChallengeResponseAuthentication yes/g' /etc/ssh/sshd_config
+              systemctl restart sshd
+            else [ -f /etc/redhat-release ];
+              sed -i '/PasswordAuthentication yes/s/^#//g' /etc/ssh/sshd_config
+              sed -i '/ChallengeResponseAuthentication yes/s/^#//g' /etc/ssh/sshd_config
+              systemctl restart sshd
+            fi
+          
+  cinder_volume:
+    type: OS::Cinder::Volume
+    properties:
+      name:
+        list_join: ['_', [ { get_param: vm_name }, 'vol01']]
+      size: { get_param: volume_size }
+      image: { get_param: image }
+      availability_zone: { get_param: cinder_availability_zone }
+
+  eth0:
+    type: OS::Neutron::Port
+    properties:
+      name: { get_param: ip_address }
+      network_id: { get_param: network_name }
+      fixed_ips: [{ "subnet": { get_param: subnet_name }, "ip_address": { get_param: ip_address } }]
+
+  cloud_server_wait:
+    type: AWS::CloudFormation::WaitCondition
+    depends_on: [ cloud_server, cinder_volume, eth0 ]
+    properties:
+      Handle:
+        get_resource: cloud_server_wait_handle
+      Timeout: 1000
+
+  cloud_server_wait_handle:
+    type: AWS::CloudFormation::WaitConditionHandle
